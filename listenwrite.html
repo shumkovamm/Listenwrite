@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ListenWrite — YouTube Dictation Practice</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f3;
+    --bg3: #ebebea;
+    --text: #1a1a18;
+    --text2: #6b6b68;
+    --text3: #aaa9a4;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --radius: 10px;
+    --radius-lg: 14px;
+    --green-bg: #eaf3de;
+    --green-text: #3b6d11;
+    --red-bg: #faece7;
+    --red-text: #993c1d;
+    --red-mid: #f0997b;
+    --red-light: #f5c4b3;
+    --blue-bg: #e6f1fb;
+    --blue-text: #185fa5;
+    --accent: #1a1a18;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #252523;
+      --bg3: #2e2e2b;
+      --text: #f0ede6;
+      --text2: #9e9c96;
+      --text3: #5e5d58;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+      --green-bg: #173404;
+      --green-text: #c0dd97;
+      --red-bg: #4a1b0c;
+      --red-text: #f0997b;
+      --red-mid: #993c1d;
+      --red-light: #712b13;
+      --blue-bg: #042c53;
+      --blue-text: #85b7eb;
+    }
+  }
+
+  html { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg2); color: var(--text); min-height: 100vh; }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  header {
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 1.5rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-mark {
+    width: 30px; height: 30px;
+    background: var(--text);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-mark svg { width: 16px; height: 16px; fill: var(--bg); }
+  .logo-name { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-tag { font-size: 12px; color: var(--text3); margin-left: 2px; display: none; }
+  @media(min-width:500px){ .logo-tag { display: inline; } }
+  header .spacer { flex: 1; }
+  .header-link { font-size: 13px; color: var(--text2); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+  .header-link:hover { background: var(--bg2); color: var(--text); }
+
+  /* ── Layout ── */
+  main { flex: 1; max-width: 780px; width: 100%; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+  /* ── URL input ── */
+  .url-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .url-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .url-row { display: flex; gap: 8px; }
+  .url-row input {
+    flex: 1;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  .url-row input:focus { outline: none; border-color: var(--text3); box-shadow: 0 0 0 3px rgba(0,0,0,0.06); }
+  .url-row input::placeholder { color: var(--text3); }
+
+  /* ── Buttons ── */
+  .btn {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: background 0.12s, opacity 0.12s;
+    text-decoration: none;
+  }
+  .btn:hover { background: var(--bg2); }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn-primary:hover { opacity: 0.82; background: var(--text); }
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  /* ── Status banner ── */
+  .status {
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+    display: none;
+    line-height: 1.5;
+  }
+  .status.info { background: var(--blue-bg); color: var(--blue-text); display: block; }
+  .status.error { background: var(--red-bg); color: var(--red-text); display: block; }
+  .status.ok { background: var(--green-bg); color: var(--green-text); display: block; }
+
+  /* ── Player ── */
+  .player-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg3);
+    border: 0.5px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .player-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
+  .player-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; color: var(--text3);
+  }
+  .player-placeholder svg { width: 44px; height: 44px; opacity: 0.5; }
+  .player-placeholder p { font-size: 14px; }
+
+  /* ── Track selector ── */
+  .track-row {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+  }
+  .track-row label { font-size: 13px; color: var(--text2); white-space: nowrap; font-weight: 500; }
+  .track-row select {
+    flex: 1;
+    height: 36px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    padding: 0 10px;
+    cursor: pointer;
+  }
+
+  /* ── Progress ── */
+  .progress-wrap { height: 3px; background: var(--bg3); border-radius: 2px; margin-bottom: 1.25rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--text); border-radius: 2px; transition: width 0.3s ease; }
+
+  /* ── Stats ── */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .stat-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); margin-bottom: 3px; }
+  .stat-value { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.2; }
+
+  /* ── Phrase card ── */
+  .phrase-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .phrase-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+  .phrase-num {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text3); background: var(--bg2); padding: 3px 10px; border-radius: 20px;
+  }
+  .phrase-time { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+  /* Playback controls */
+  .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+  .ctrl-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 0.5px solid var(--border2);
+    background: var(--bg); color: var(--text);
+    font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+    flex-shrink: 0;
+  }
+  .ctrl-btn:hover { background: var(--bg2); }
+  .ctrl-btn:active { transform: scale(0.95); }
+  .ctrl-btn.playing { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .speed-select {
+    height: 34px; padding: 0 10px; border-radius: 20px;
+    border: 0.5px solid var(--border2);
+    background: var(--bg); color: var(--text2);
+    font-size: 12px; cursor: pointer;
+  }
+  .auto-play-label { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 5px; cursor: pointer; margin-left: auto; }
+  .auto-play-label input { cursor: pointer; }
+
+  /* Text input */
+  .dictation-input {
+    width: 100%;
+    min-height: 72px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color 0.12s;
+  }
+  .dictation-input:focus { outline: none; border-color: var(--text3); box-shadow: 0 0 0 3px rgba(0,0,0,0.06); }
+  .dictation-input::placeholder { color: var(--text3); }
+  .dictation-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* Action row */
+  .action-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .hint-area { font-size: 13px; color: var(--text2); background: var(--bg2); padding: 4px 10px; border-radius: 6px; display: none; }
+
+  /* Result */
+  .result-box {
+    margin-top: 1rem;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 15px;
+    line-height: 2;
+    display: none;
+    word-wrap: break-word;
+  }
+  .result-box.correct { background: var(--green-bg); }
+  .result-box.has-errors { background: var(--red-bg); }
+  .w-ok { color: var(--green-text); }
+  .w-err { color: var(--red-text); font-weight: 600; }
+  .w-fix {
+    font-size: 11px; color: var(--red-text);
+    border: 0.5px solid var(--red-mid);
+    border-radius: 4px; padding: 1px 5px;
+    margin-left: 2px;
+    background: var(--red-light);
+    vertical-align: middle;
+    font-weight: 400;
+  }
+  .w-miss { color: var(--text3); font-style: italic; font-size: 13px; }
+
+  .score-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text2); }
+  .score-val { font-weight: 600; font-size: 15px; color: var(--text); }
+
+  .translation-box {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .translation-box .tr-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .translation-box .tr-text { color: var(--text); font-size: 14px; }
+  .translation-box .tr-loading { color: var(--text3); font-style: italic; font-size: 13px; }
+
+  /* Nav */
+  .nav-row { display: none; gap: 8px; margin-bottom: 1.25rem; }
+  .nav-row .spacer { flex: 1; }
+
+  /* ── How to use card ── */
+  .howto-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.3s;
+  }
+  .howto-card.collapsed { max-height: 46px; }
+  .howto-card.expanded { max-height: 500px; }
+  .howto-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; cursor: pointer; user-select: none;
+  }
+  .howto-header span { font-size: 14px; font-weight: 600; flex: 1; }
+  .howto-chevron {
+    width: 18px; height: 18px; color: var(--text3);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+  .howto-card.collapsed .howto-chevron { transform: rotate(-90deg); }
+  .howto-body { padding: 0 16px 14px; }
+  .howto-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .howto-steps li {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: var(--text2); line-height: 1.5;
+  }
+  .howto-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .howto-tip {
+    margin-top: 10px; padding: 8px 10px;
+    background: var(--blue-bg); border-radius: var(--radius);
+    font-size: 12px; color: var(--blue-text); line-height: 1.5;
+  }
+
+  /* ── Finish screen ── */
+  #finish-screen {
+    display: none;
+    text-align: center;
+    padding: 3rem 1rem;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .finish-icon { font-size: 48px; margin-bottom: 0.5rem; }
+  .finish-score { font-size: 64px; font-weight: 700; line-height: 1; margin: 0.5rem 0 0.25rem; }
+  .finish-label { font-size: 14px; color: var(--text2); margin-bottom: 1rem; }
+  .finish-detail { font-size: 14px; color: var(--text2); margin-bottom: 1.5rem; }
+  .finish-actions { display: flex; gap: 8px; justify-content: center; }
+
+  /* ── Dictation area ── */
+  #dictation-area { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 3a9 9 0 1 0 0 18A9 9 0 0 0 12 3zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 12 5zm-1 3v4.586l-2.707 2.707 1.414 1.414L12.414 14H16v-2h-3V8h-2z"/>
+    </svg>
+  </div>
+  <span class="logo-name">ListenWrite</span>
+  <span class="logo-tag">— YouTube dictation practice</span>
+  <span class="spacer"></span>
+</header>
+
+<main>
+
+  <!-- How to use -->
+  <div class="howto-card expanded" id="howto-card">
+    <div class="howto-header" onclick="toggleHowto()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>How to use</span>
+      <svg class="howto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="howto-body">
+      <ul class="howto-steps">
+        <li><span class="howto-num">1</span><span>Paste any YouTube link below and tap <b>Load</b></span></li>
+        <li><span class="howto-num">2</span><span>Select a subtitle language from the dropdown</span></li>
+        <li><span class="howto-num">3</span><span>Press <b>▶ Play</b> to hear a phrase, then type what you heard</span></li>
+        <li><span class="howto-num">4</span><span>Tap <b>Check</b> (or press Enter) — mistakes are highlighted with the correct word</span></li>
+        <li><span class="howto-num">5</span><span>Move to the next phrase and repeat</span></li>
+      </ul>
+      <div class="howto-tip">💡 Works best with lectures, TED talks, audiobooks and news — any video with built-in subtitles (CC). Ctrl+Space replays the phrase.</div>
+    </div>
+  </div>
+
+  <!-- URL input -->
+  <div class="url-card" id="url-card">
+    <h2>Enter a YouTube video URL</h2>
+    <div class="url-row">
+      <input type="text" id="url-input" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" spellcheck="false" />
+      <button class="btn btn-primary" onclick="loadVideo()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Load
+      </button>
+    </div>
+    <div class="status" id="load-status"></div>
+  </div>
+
+  <!-- Change video button (shown during dictation) -->
+  <div id="change-video-bar" style="display:none; margin-bottom:1rem;">
+    <button class="btn" style="width:100%;justify-content:center;" onclick="changeVideo()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+      Load a different video
+    </button>
+  </div>
+
+  <!-- YouTube player -->
+  <div class="player-wrap" id="player-wrap">
+    <div class="player-placeholder" id="player-placeholder">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+      <p>Paste a YouTube link above to begin</p>
+    </div>
+  </div>
+
+  <!-- Track selector -->
+  <div class="track-row" id="track-row">
+    <label for="track-select">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M8 12h8M8 16h5"/></svg>
+      Subtitles
+    </label>
+    <select id="track-select" onchange="loadTrack()">
+      <option value="">— select a language track —</option>
+    </select>
+  </div>
+
+  <!-- Dictation UI -->
+  <div id="dictation-area">
+
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Phrase</div><div class="stat-value" id="stat-phrase">—</div></div>
+      <div class="stat-card"><div class="stat-label">Accuracy</div><div class="stat-value" id="stat-acc">—</div></div>
+      <div class="stat-card"><div class="stat-label">Words typed</div><div class="stat-value" id="stat-words">0</div></div>
+    </div>
+
+    <div class="phrase-card" id="phrase-card">
+      <div class="phrase-meta">
+        <span class="phrase-num" id="phrase-num">Phrase 1</span>
+        <span class="phrase-time" id="phrase-time"></span>
+      </div>
+
+      <div class="controls">
+        <button class="ctrl-btn" id="play-btn" onclick="playPhrase()" title="Play (Space)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="ctrl-btn" onclick="replayPhrase()" title="Replay">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+        </button>
+        <select class="speed-select" id="speed-select" onchange="setSpeed()" title="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+        </select>
+        <label class="auto-play-label" title="Auto-play each phrase when it loads">
+          <input type="checkbox" id="auto-play" /> Auto-play
+        </label>
+      </div>
+
+      <textarea
+        class="dictation-input"
+        id="dictation-input"
+        placeholder="Type what you hear… (Enter to check)"
+        rows="3"
+        onkeydown="handleKey(event)"
+        oninput="onInput()"
+        spellcheck="false"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+      ></textarea>
+
+      <div class="action-row">
+        <button class="btn btn-sm" onclick="giveHint()" id="hint-btn" title="Reveal one word">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Hint
+        </button>
+        <span class="hint-area" id="hint-area"></span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" onclick="skipPhrase()">Skip</button>
+        <button class="btn btn-sm btn-primary" onclick="checkAnswer()" id="check-btn">
+          Check
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+
+      <div class="result-box" id="result-box"></div>
+      <div class="score-bar" id="score-bar" style="display:none">
+        <span class="score-val" id="score-val"></span>
+        <span id="score-msg"></span>
+      </div>
+      <div class="translation-box" id="translation-box">
+        <div class="tr-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-2M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
+          Russian translation
+        </div>
+        <div class="tr-text" id="tr-text"><span class="tr-loading">Translating…</span></div>
+      </div>
+    </div>
+
+    <div class="nav-row" id="nav-row">
+      <button class="btn" onclick="prevPhrase()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        Previous
+      </button>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" onclick="nextPhrase()" id="next-btn">
+        Next phrase
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+
+  </div><!-- /dictation-area -->
+
+  <!-- Finish screen -->
+  <div id="finish-screen">
+    <div class="finish-icon">🎉</div>
+    <div class="finish-score" id="final-score"></div>
+    <div class="finish-label">average accuracy</div>
+    <div class="finish-detail" id="final-detail"></div>
+    <div class="finish-actions">
+      <button class="btn" onclick="restartSession()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+        Restart
+      </button>
+      <button class="btn btn-primary" onclick="changeVideo()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        New video
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let player = null;
+let phrases = [];
+let current = 0;
+let scores = [];
+let totalWords = 0;
+let hintWords = 0;
+let speed = 1;
+let phraseTimer = null;
+let ytApiLoaded = false;
+
+const PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://thingproxy.freeboard.io/fetch/${url}`,
+];
+
+// ── How to use ─────────────────────────────────────────────────────────────
+function toggleHowto() {
+  const card = $('howto-card');
+  card.classList.toggle('collapsed');
+  card.classList.toggle('expanded');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function $(id){ return document.getElementById(id); }
+
+function showStatus(msg, type) {
+  const el = $('load-status');
+  el.textContent = msg;
+  el.className = 'status' + (msg ? ' ' + type : '');
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+function parseVideoId(url) {
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function htmlEntities(str) {
+  return str
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/<[^>]+>/g, '').trim();
+}
+
+async function fetchWithProxy(url) {
+  for (const proxy of PROXIES) {
+    try {
+      const r = await fetch(proxy(url), { signal: AbortSignal.timeout(8000) });
+      if (r.ok) return await r.text();
+    } catch(e) { /* try next */ }
+  }
+  throw new Error('All proxies failed');
+}
+
+// ── YouTube Player ─────────────────────────────────────────────────────────
+function loadVideo() {
+  const url = $('url-input').value.trim();
+  const vid = parseVideoId(url);
+  if (!vid) { showStatus('Could not find a YouTube video ID in that URL.', 'error'); return; }
+  showStatus('Loading video…', 'info');
+  $('dictation-area').style.display = 'none';
+  $('finish-screen').style.display = 'none';
+  $('track-row').style.display = 'none';
+  $('player-placeholder').style.display = 'none';
+  // Collapse howto and hide url input
+  $('howto-card').classList.remove('expanded');
+  $('howto-card').classList.add('collapsed');
+  $('url-card').style.display = 'none';
+  $('change-video-bar').style.display = 'block';
+  createPlayer(vid);
+}
+
+function createPlayer(vid) {
+  if (player) { try { player.destroy(); } catch(e){} player = null; }
+  $('player-wrap').innerHTML = '<div id="yt-player"></div>';
+
+  const doInit = () => {
+    player = new YT.Player('yt-player', {
+      videoId: vid,
+      playerVars: { rel: 0, modestbranding: 1, controls: 1, cc_load_policy: 0 },
+      events: {
+        onReady: () => { showStatus('', ''); fetchTrackList(vid); },
+        onStateChange: onPlayerState,
+        onError: e => showStatus('YouTube player error (' + e.data + '). Try another video.', 'error')
+      }
+    });
+  };
+
+  if (typeof YT !== 'undefined' && YT.Player) {
+    doInit();
+  } else {
+    window.onYouTubeIframeAPIReady = doInit;
+    if (!ytApiLoaded) {
+      ytApiLoaded = true;
+      const s = document.createElement('script');
+      s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+  }
+}
+
+function onPlayerState(e) {
+  const playing = e.data === YT.PlayerState.PLAYING;
+  $('play-btn').classList.toggle('playing', playing);
+}
+
+// ── Caption fetching ───────────────────────────────────────────────────────
+async function fetchTrackList(vid) {
+  showStatus('Fetching subtitle tracks…', 'info');
+  const url = `https://video.google.com/timedtext?type=list&v=${vid}`;
+  try {
+    const xml = await fetchWithProxy(url);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const tracks = Array.from(doc.querySelectorAll('track'));
+    if (!tracks.length) {
+      showStatus('No subtitle tracks found for this video. Try a video with built-in captions (lectures, TED talks, news).', 'error');
+      return;
+    }
+    const sel = $('track-select');
+    sel.innerHTML = '<option value="">— select a language track —</option>';
+    tracks.forEach(t => {
+      const lang = t.getAttribute('lang_code') || t.getAttribute('lang') || 'und';
+      const name = t.getAttribute('name') || '';
+      const label = t.getAttribute('lang_translated') || lang;
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({ lang, name });
+      opt.textContent = label + (name ? ` (${name})` : '');
+      sel.appendChild(opt);
+    });
+    $('track-row').style.display = 'flex';
+    showStatus(`Found ${tracks.length} subtitle track${tracks.length > 1 ? 's' : ''}. Select a language to start.`, 'ok');
+  } catch(e) {
+    showStatus('Could not load subtitle list — proxy error. Check your connection or try again.', 'error');
+  }
+}
+
+async function loadTrack() {
+  const sel = $('track-select');
+  if (!sel.value) return;
+  const { lang, name } = JSON.parse(sel.value);
+  const vid = parseVideoId($('url-input').value.trim());
+  const url = `https://video.google.com/timedtext?lang=${lang}&v=${vid}${name ? '&name=' + encodeURIComponent(name) : ''}`;
+  showStatus('Loading subtitles…', 'info');
+  try {
+    const xml = await fetchWithProxy(url);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const texts = doc.querySelectorAll('text');
+    if (!texts.length) { showStatus('Subtitle track is empty.', 'error'); return; }
+    phrases = Array.from(texts)
+      .map(t => ({
+        start: parseFloat(t.getAttribute('start') || '0'),
+        dur:   parseFloat(t.getAttribute('dur') || '3'),
+        text:  htmlEntities(t.textContent || '')
+      }))
+      .filter(p => p.text.length > 2);
+    if (!phrases.length) { showStatus('No usable subtitle entries found.', 'error'); return; }
+    showStatus('', '');
+    $('track-row').style.display = 'none';
+    startDictation();
+  } catch(e) {
+    showStatus('Failed to load subtitle content. Try a different track or video.', 'error');
+  }
+}
+
+// ── Dictation session ──────────────────────────────────────────────────────
+function startDictation() {
+  current = 0; scores = []; totalWords = 0;
+  $('dictation-area').style.display = 'block';
+  $('finish-screen').style.display = 'none';
+  renderPhrase();
+}
+
+function renderPhrase() {
+  if (current >= phrases.length) { showFinish(); return; }
+  const p = phrases[current];
+
+  $('phrase-num').textContent = `Phrase ${current + 1}`;
+  $('phrase-time').textContent = formatTime(p.start) + ' – ' + formatTime(p.start + p.dur);
+  $('dictation-input').value = '';
+  $('dictation-input').disabled = false;
+  $('result-box').style.display = 'none';
+  $('score-bar').style.display = 'none';
+  $('nav-row').style.display = 'none';
+  $('check-btn').style.display = '';
+  $('hint-area').style.display = 'none';
+  $('hint-area').textContent = '';
+  $('translation-box').style.display = 'none';
+  hintWords = 0;
+
+  updateProgress();
+  updateStats();
+
+  if ($('auto-play').checked) setTimeout(playPhrase, 300);
+  else $('dictation-input').focus();
+}
+
+function updateProgress() {
+  const pct = phrases.length ? Math.round(current / phrases.length * 100) : 0;
+  $('progress-fill').style.width = pct + '%';
+  $('stat-phrase').textContent = `${current + 1} / ${phrases.length}`;
+}
+
+function updateStats() {
+  const acc = scores.length
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) + '%'
+    : '—';
+  $('stat-acc').textContent = acc;
+  $('stat-words').textContent = totalWords;
+}
+
+// ── Playback ───────────────────────────────────────────────────────────────
+function playPhrase() {
+  if (!player || !player.seekTo) return;
+  const p = phrases[current];
+  clearTimeout(phraseTimer);
+  player.seekTo(p.start, true);
+  player.setPlaybackRate(speed);
+  player.playVideo();
+  phraseTimer = setTimeout(() => {
+    if (player) player.pauseVideo();
+  }, (p.dur + 0.3) * 1000 / speed);
+  $('dictation-input').focus();
+}
+
+function replayPhrase() { playPhrase(); }
+
+function setSpeed() {
+  speed = parseFloat($('speed-select').value);
+  if (player && player.setPlaybackRate) player.setPlaybackRate(speed);
+}
+
+// ── Input ──────────────────────────────────────────────────────────────────
+function onInput() {
+  const w = $('dictation-input').value.trim().split(/\s+/).filter(Boolean).length;
+  totalWords = w;
+  updateStats();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); checkAnswer(); }
+  if (e.key === ' ' && e.ctrlKey) { e.preventDefault(); playPhrase(); }
+}
+
+// ── Check ──────────────────────────────────────────────────────────────────
+function norm(s) {
+  return s.toLowerCase().replace(/[^a-z0-9'\u00C0-\u024F\s]/gi, '').trim();
+}
+
+function checkAnswer() {
+  const p = phrases[current];
+  if (!p) return;
+  const userRaw = $('dictation-input').value;
+  const userWords = norm(userRaw).split(/\s+/).filter(Boolean);
+  const refWords  = norm(p.text).split(/\s+/).filter(Boolean);
+
+  let correct = 0;
+  const tokens = refWords.map((ref, i) => {
+    const user = userWords[i] || '';
+    const ok = norm(user) === ref;
+    if (ok) correct++;
+    return { ref, user, ok, missing: !user };
+  });
+
+  const pct = refWords.length ? Math.round(correct / refWords.length * 100) : 100;
+  scores.push(pct);
+
+  const box = $('result-box');
+  box.innerHTML = tokens.map(t => {
+    if (t.ok) return `<span class="w-ok">${t.ref}</span> `;
+    if (t.missing) return `<span class="w-miss">[${t.ref}]</span> `;
+    return `<span class="w-err">${t.user}</span><span class="w-fix">→ ${t.ref}</span> `;
+  }).join('');
+  box.className = 'result-box ' + (pct === 100 ? 'correct' : 'has-errors');
+  box.style.display = 'block';
+
+  $('score-val').textContent = pct + '%';
+  $('score-msg').textContent = pct === 100 ? '— perfect!' : pct >= 80 ? '— great job!' : pct >= 50 ? '— keep going!' : '— keep practising!';
+  $('score-bar').style.display = 'flex';
+
+  $('check-btn').style.display = 'none';
+  $('dictation-input').disabled = true;
+  $('nav-row').style.display = 'flex';
+
+  const isLast = current >= phrases.length - 1;
+  $('next-btn').textContent = isLast ? 'Finish' : 'Next phrase →';
+
+  updateStats();
+  showTranslation(p.text);
+}
+
+// ── Translation ────────────────────────────────────────────────────────────
+async function translateToRussian(text) {
+  // Try Google Translate unofficial endpoint first
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ru&dt=t&q=${encodeURIComponent(text)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (r.ok) {
+      const data = await r.json();
+      const result = data[0].map(s => s[0]).join('');
+      if (result) return result;
+    }
+  } catch(e) { /* fallback */ }
+
+  // Fallback: MyMemory free API
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ru`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (r.ok) {
+      const data = await r.json();
+      if (data.responseStatus === 200) return data.responseData.translatedText;
+    }
+  } catch(e) { /* give up */ }
+
+  return null;
+}
+
+async function showTranslation(text) {
+  const box = $('translation-box');
+  const el = $('tr-text');
+  box.style.display = 'block';
+  el.innerHTML = '<span class="tr-loading">Translating…</span>';
+  const result = await translateToRussian(text);
+  el.textContent = result || 'Translation unavailable.';
+}
+
+
+function giveHint() {
+  const p = phrases[current];
+  const words = p.text.split(/\s+/);
+  hintWords = Math.min(hintWords + 1, words.length);
+  const hint = words.slice(0, hintWords).join(' ') + (hintWords < words.length ? ' …' : '');
+  $('hint-area').textContent = hint;
+  $('hint-area').style.display = 'inline-block';
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function skipPhrase() { scores.push(0); nextPhrase(); }
+
+function prevPhrase() {
+  if (current > 0) { current--; if (scores.length > current) scores.pop(); renderPhrase(); }
+}
+
+function nextPhrase() {
+  if (current < phrases.length - 1) { current++; renderPhrase(); }
+  else showFinish();
+}
+
+// ── Finish ─────────────────────────────────────────────────────────────────
+function showFinish() {
+  clearTimeout(phraseTimer);
+  if (player) player.pauseVideo();
+  $('dictation-area').style.display = 'none';
+  $('finish-screen').style.display = 'block';
+  const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  $('final-score').textContent = avg + '%';
+  $('final-detail').textContent =
+    `${scores.length} phrase${scores.length !== 1 ? 's' : ''} completed · ${totalWords} words typed`;
+}
+
+function restartSession() {
+  current = 0; scores = []; totalWords = 0;
+  $('finish-screen').style.display = 'none';
+  $('dictation-area').style.display = 'block';
+  renderPhrase();
+}
+
+function newVideo() {
+  $('finish-screen').style.display = 'none';
+  $('dictation-area').style.display = 'none';
+  $('track-row').style.display = 'none';
+  $('player-placeholder').style.display = 'flex';
+  $('url-input').value = '';
+  showStatus('', '');
+  phrases = []; scores = []; totalWords = 0;
+}
+
+function changeVideo() {
+  clearTimeout(phraseTimer);
+  if (player) { try { player.destroy(); } catch(e){} player = null; }
+  $('dictation-area').style.display = 'none';
+  $('finish-screen').style.display = 'none';
+  $('track-row').style.display = 'none';
+  $('change-video-bar').style.display = 'none';
+  $('url-card').style.display = 'block';
+  $('howto-card').classList.remove('collapsed');
+  $('howto-card').classList.add('expanded');
+  // Reset player area
+  $('player-wrap').innerHTML = `<div class="player-placeholder" id="player-placeholder">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+    <p>Paste a YouTube link above to begin</p>
+  </div>`;
+  $('url-input').value = '';
+  showStatus('', '');
+  phrases = []; scores = []; totalWords = 0;
+  setTimeout(() => $('url-input').focus(), 100);
+}
+
+// Keyboard shortcut: Ctrl+Space = play/replay
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); playPhrase(); }
+});
+</script>
+</body>
+</html>
